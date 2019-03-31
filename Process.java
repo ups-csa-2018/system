@@ -30,7 +30,7 @@ final class Process extends Thread
                 break;
             }
 
-            System.out.println("Process " + this.id);
+            // System.out.println("Process " + this.id);
 
             this.sc.processFinish(this.id);
         }

@@ -104,11 +104,11 @@ final class Sched extends Thread
                 }
             }
 
-            System.out.println(" === step " + i + " ===");
+            // System.out.println(" === step " + i + " ===");
             // process stopped
             if (this.currentProcess != null) {
                 if (this.currentProcess.def.length <= i - this.currentProcess.startAt) {
-                    System.out.println("stopped process " + this.currentProcess.def.proc.getPid());
+                    // System.out.println("stopped process " + this.currentProcess.def.proc.getPid());
                     this.currentProcess = null;
                 }
             }
@@ -117,7 +117,7 @@ final class Sched extends Thread
 
             // a new process is launched
             if (sp != null) {
-                System.out.println("starting new process " + sp.def.proc.getPid());
+                // System.out.println("starting new process " + sp.def.proc.getPid());
                 this.currentProcess = sp;
                 this.trace.put(i, this.currentProcess);
                 this.running = false;
@@ -154,13 +154,13 @@ final class Sched extends Thread
         for (ProcessDef def : this.processes.values()) {
             // new period for the process
             if (curIter % def.period == 0) {
-                System.out.println("new period for " + def.proc.getPid());
+                // System.out.println("new period for " + def.proc.getPid());
 
                 ScheduledProcess sp = new ScheduledProcess();
                 sp.def = def;
                 sp.startPeriod = curIter;
 
-                this.scheduled.add(sp);
+                this.addScheduledProcessToSchedule(sp);
             }
         }
 
@@ -173,6 +173,16 @@ final class Sched extends Thread
         }
 
         return next;
+    }
+
+    private void addScheduledProcessToSchedule(ScheduledProcess sp)
+    {
+        switch (this.mode) {
+            case FIFO:
+                this.scheduled.add(sp);
+                break;
+            default:
+        }
     }
 
     public void printTrace()
@@ -190,7 +200,7 @@ final class Sched extends Thread
 
             ScheduledProcess p = this.trace.get(i);
 
-            for (int j = 0; j < p.def.length; j++) {
+            for (int j = 0; j < p.def.length && i + j < this.runSteps; j++) {
                 System.out.println((i + j) + " " + p.def.proc.getPid());
             }
 
