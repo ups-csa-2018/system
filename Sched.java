@@ -107,16 +107,27 @@ final class Sched extends Thread
             }
 
             // System.out.println(" === step " + i + " ===");
-            // process stopped
+            // check for deadline violations
+            for (ScheduledProcess sp : this.scheduled) {
+                if (i >= sp.startPeriod + sp.def.period) {
+                    if (!sp.violated) {
+                        this.violations++;
+                        sp.violated = true;
+                    }
+                }
+            }
             if (this.currentProcess != null) {
-                this.currentProcess.elapsed++;
-
                 if (i >= this.currentProcess.startPeriod + this.currentProcess.def.period) {
                     if (!this.currentProcess.violated) {
                         this.violations++;
                         this.currentProcess.violated = true;
                     }
                 }
+            }
+
+            // process stopped
+            if (this.currentProcess != null) {
+                this.currentProcess.elapsed++;
 
                 if (this.currentProcess.def.length <= this.currentProcess.elapsed) {
                     // System.out.println("stopped process " + this.currentProcess.def.proc.getPid());
@@ -223,6 +234,11 @@ final class Sched extends Thread
                 int deadline2 = sp2.startPeriod + sp2.def.period;
 
                 return deadline2 - deadline;
+            case RM:
+                int per = sp.def.period;
+                int per2 = sp2.def.period;
+
+                return per2 - per;
             default:
         }
 

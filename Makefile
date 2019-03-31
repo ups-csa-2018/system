@@ -1,4 +1,4 @@
-.PHONY: clean tests test1 test2 test3
+.PHONY: clean tests test1 test2 test3 test4 test5
 
 JAVA_FILES=$(wildcard *.java)
 TARGETS=$(JAVA_FILES:.java=.class)
@@ -24,7 +24,11 @@ test4: Main.class tests/input4 tests/output4
 	java Main tests/input4 | diff tests/output4 -
 	@echo "test 4 passed"
 
-tests: test1 test2 test3 test4
+test5: Main.class tests/input5 tests/output5
+	java Main tests/input5 | diff tests/output5 -
+	@echo "test 5 passed"
+
+tests: test1 test2 test3 test4 test5
 	@echo "all tests passed"
 
 clean:
