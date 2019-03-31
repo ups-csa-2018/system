@@ -11,29 +11,21 @@ class Main
 {
     public static void main(String[] args)
     {
-        String inputFilePath = null;
-
-        if (args.length >= 1) {
-            inputFilePath = args[0];
-        }
-
-        if (args.length >= 2) {
+        if (args.length != 1) {
             System.err.println("Usage: program <input>");
             System.err.println("    default to stdin");
             System.exit(1);
         }
 
+        String inputFilePath = args[0];
+
         Scanner in = null;
 
-        if (inputFilePath == null) {
-            in = new Scanner(System.in);
-        } else {
-            try {
-                in = new Scanner(new FileReader(inputFilePath));
-            } catch (java.io.FileNotFoundException e) {
-                // TODO: handle it in a better way
-                System.exit(2);
-            }
+        try {
+            in = new Scanner(new FileReader(inputFilePath));
+        } catch (java.io.FileNotFoundException e) {
+            System.err.println("Unable to open file: " + inputFilePath);
+            System.exit(2);
         }
 
         Sched sc = null;
