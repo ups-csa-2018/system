@@ -181,6 +181,25 @@ final class Sched extends Thread
             case FIFO:
                 this.scheduled.add(sp);
                 break;
+            case ED:
+                // A better approach would be to have used an ordered list with
+                // a custom ordering function.
+                // As I have other things to get done, I'll just put that like
+                // this and hope you never read that code (nor understand it as
+                // this insertion is O(n)).
+                int deadline = sp.startPeriod + sp.def.period;
+
+                int i = 0;
+                for (ScheduledProcess ssp : this.scheduled) {
+                    if (ssp.startPeriod + ssp.def.period > deadline) {
+                        break;
+                    }
+
+                    i++;
+                }
+
+                this.scheduled.add(i, sp);
+                break;
             default:
         }
     }
