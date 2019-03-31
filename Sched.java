@@ -25,7 +25,8 @@ final class Sched extends Thread
     private class ScheduledProcess {
         public ProcessDef def;
         public int startPeriod;
-        public int startAt;
+        public int elapsed;
+        public boolean violated;
     }
 
     private ReentrantLock lock;
@@ -37,7 +38,8 @@ final class Sched extends Thread
     private boolean running;
     private HashMap<Integer, ProcessDef> processes;
     private LinkedList<ScheduledProcess> scheduled;
-    private HashMap<Integer, ScheduledProcess> trace;
+    private LinkedList<ScheduledProcess> trace;
+    private int violations;
 
     public Sched(Mode mode, int runSteps)
     {
@@ -49,7 +51,7 @@ final class Sched extends Thread
         this.running = true;
         this.processes = new HashMap<Integer, ProcessDef>();
         this.scheduled = new LinkedList<ScheduledProcess>();
-        this.trace = new HashMap<Integer, ScheduledProcess>();
+        this.trace = new LinkedList<ScheduledProcess>();
     }
 
     public void addProcess(Process proc, int length, int period)
@@ -107,7 +109,16 @@ final class Sched extends Thread
             // System.out.println(" === step " + i + " ===");
             // process stopped
             if (this.currentProcess != null) {
-                if (this.currentProcess.def.length <= i - this.currentProcess.startAt) {
+                this.currentProcess.elapsed++;
+
+                if (i >= this.currentProcess.startPeriod + this.currentProcess.def.period) {
+                    if (!this.currentProcess.violated) {
+                        this.violations++;
+                        this.currentProcess.violated = true;
+                    }
+                }
+
+                if (this.currentProcess.def.length <= this.currentProcess.elapsed) {
                     // System.out.println("stopped process " + this.currentProcess.def.proc.getPid());
                     this.currentProcess = null;
                 }
@@ -119,12 +130,12 @@ final class Sched extends Thread
             if (sp != null) {
                 // System.out.println("starting new process " + sp.def.proc.getPid());
                 this.currentProcess = sp;
-                this.trace.put(i, this.currentProcess);
                 this.running = false;
 
                 sp.def.cond.signal();
             }
 
+            this.trace.addLast(this.currentProcess);
             this.lock.unlock();
         }
 
@@ -159,16 +170,24 @@ final class Sched extends Thread
                 ScheduledProcess sp = new ScheduledProcess();
                 sp.def = def;
                 sp.startPeriod = curIter;
+                sp.elapsed = 0;
 
                 this.addScheduledProcessToSchedule(sp);
             }
         }
 
         // no process running
-        if (this.currentProcess == null) {
-            if (!this.scheduled.isEmpty()) {
+        if (!this.scheduled.isEmpty()) {
+            if (this.currentProcess == null) {
                 next = this.scheduled.removeFirst();
-                next.startAt = curIter;
+            } else if (this.mode != Sched.Mode.FIFO) { // no preemption for FIFO
+                ScheduledProcess sp = this.currentProcess;
+                ScheduledProcess sp2 = this.scheduled.getFirst();
+
+                if (this.compareScheduledProcesses(sp, sp2) < 0) {
+                    next = this.scheduled.removeFirst();
+                    this.scheduled.addFirst(sp);
+                }
             }
         }
 
@@ -177,59 +196,50 @@ final class Sched extends Thread
 
     private void addScheduledProcessToSchedule(ScheduledProcess sp)
     {
+        // A better approach would be to have used an ordered list with
+        // a custom ordering function.
+        // As I have other things to get done, I'll just put that like
+        // this and hope you never read that code (nor understand it as
+        // this insertion is O(n)).
+        int i = 0;
+        for (ScheduledProcess ssp : this.scheduled) {
+            if (this.compareScheduledProcesses(sp, ssp) >= 0) {
+                break;
+            }
+
+            i++;
+        }
+
+        this.scheduled.add(i, sp);
+    }
+
+    private int compareScheduledProcesses(ScheduledProcess sp, ScheduledProcess sp2)
+    {
         switch (this.mode) {
             case FIFO:
-                this.scheduled.add(sp);
-                break;
+                return -1;
             case ED:
-                // A better approach would be to have used an ordered list with
-                // a custom ordering function.
-                // As I have other things to get done, I'll just put that like
-                // this and hope you never read that code (nor understand it as
-                // this insertion is O(n)).
                 int deadline = sp.startPeriod + sp.def.period;
+                int deadline2 = sp2.startPeriod + sp2.def.period;
 
-                int i = 0;
-                for (ScheduledProcess ssp : this.scheduled) {
-                    if (ssp.startPeriod + ssp.def.period > deadline) {
-                        break;
-                    }
-
-                    i++;
-                }
-
-                this.scheduled.add(i, sp);
-                break;
+                return deadline2 - deadline;
             default:
         }
+
+        return 0;
     }
 
     public void printTrace()
     {
-        int usedSteps = this.runSteps;
-        int violations = 0;
+        int i = 0;
+        int usedSteps = 0;
 
-        for (int i = 0; i < this.runSteps; i++) {
-            if (!this.trace.containsKey(i)) {
-                usedSteps--;
-                System.out.println(i + " -");
-
-                continue;
-            }
-
-            ScheduledProcess p = this.trace.get(i);
-
-            for (int j = 0; j < p.def.length && i + j < this.runSteps; j++) {
-                System.out.println((i + j) + " " + p.def.proc.getPid());
-            }
-
-            i += p.def.length - 1;
-
-            if (i >= p.startPeriod + p.def.period) {
-                violations++;
-            }
+        for (ScheduledProcess sp : this.trace) {
+            System.out.println(i + " " + (sp != null ? sp.def.proc.getPid() : "-"));
+            usedSteps += (sp != null ? 1 : 0);
+            i++;
         }
 
-        System.out.println(violations + " " + usedSteps);
+        System.out.println(this.violations + " " + usedSteps);
     }
 }
